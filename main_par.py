@@ -38,7 +38,12 @@ def sub_image_lbp(input_path: str, points: int, radius: float, start_y: int, end
     input_img = load(input_path)
     height, width = input_img.shape
 
-    if not check_and_update_indices(height, width, start_y, end_y, start_x, end_x):
+    start_x = start_x if start_x > -1 else 0
+    start_y = start_y if start_y > -1 else 0
+    end_x = end_x if end_x <= width else width
+    end_y = end_y if end_y <= height else height
+
+    if start_x >= width or start_y >= height or end_x <= 0 or end_y <= 0:
         return None
 
     int_radius = np.ceil(radius).astype(int)
@@ -61,18 +66,6 @@ def sub_image_lbp(input_path: str, points: int, radius: float, start_y: int, end
             output[cy, cx] = lbp_val
     output = (np.rint(output)).astype(np.uint8)
     return output
-
-
-def check_and_update_indices(height: int, width: int, start_y: int, end_y: int, start_x: int, end_x: int) -> bool:
-    start_x = start_x if start_x > -1 else 0
-    start_y = start_y if start_y > -1 else 0
-    end_x = end_x if end_x <= width else width
-    end_y = end_y if end_y <= height else height
-
-    if start_x >= width or start_y >= height or end_x <= 0 or end_y <= 0:
-        return False
-    else:
-        return True
 
 
 def bilinear_interpolation(input_img: np.ndarray, px, py) -> float:
