@@ -57,12 +57,18 @@ def sub_image_lbp(input_path: str, points: int, radius: float, start_y: int, end
     for cy in range(slice_height):
         for cx in range(slice_width):
             lbp_val = 0
+            p_vals = []
             for p in range(points):
                 px = cx + start_x - radius * np.sin(2 * np.pi * p / points)
                 py = cy + start_y + radius * np.cos(2 * np.pi * p / points)
                 p_val = bilinear_interpolation(padded_input, px + int_radius, py + int_radius)
+                p_vals.append(p_val)
                 if p_val >= input_img[cy + start_y, cx + start_x]:
-                    lbp_val += 2 ** p
+                    lbp_val += 1
+            s = np.heaviside(np.subtract(p_vals, input_img[cy + start_y, cx + start_x]), 1)
+            u = np.sum(np.abs(s[1:] - s[:-1]))
+            if u > 2:
+                lbp_val = points + 1
             output[cy, cx] = lbp_val
     output = (np.rint(output)).astype(np.uint8)
     return output
@@ -122,18 +128,18 @@ if __name__ == '__main__':
     # end_time = timeit.default_timer()
     # print("Time (s): ", end_time - start_time)
 
-    plt.hist(output_img.flatten(), bins=2**8)
+    plt.hist(output_img.flatten(), bins=pts+1)
     plt.savefig('hist.png')
 
     plt.clf()
 
-    correct_lbp = local_binary_pattern(in_img, pts, rd, method="default")
+    correct_lbp = local_binary_pattern(in_img, pts, rd, method="uniform")
 
     correct_lbp = (np.rint(correct_lbp)).astype(np.uint8)
     corr_img = Image.fromarray(correct_lbp)
     corr_img.save('./res-cor.jpg', 'jpeg')
 
-    plt.hist(correct_lbp.ravel(), bins=2**8)
+    plt.hist(correct_lbp.ravel(), bins=pts+1)
     plt.savefig('hist-cor.png')
 
     out_img = Image.fromarray(output_img)

@@ -14,13 +14,19 @@ def lbp(input_img: np.ndarray, points: int, radius: float) -> np.ndarray:
     for cy in range(height):  # range(int_radius, height - int_radius)
         for cx in range(width):  # range(int_radius, width - int_radius)
             lbp_val = 0
+            p_vals = []
             for p in range(points):
                 px = cx - radius * np.sin(2 * np.pi * p / points)
                 py = cy + radius * np.cos(2 * np.pi * p / points)
                 # p_val = bilinear_interpolation(input_img, px, py)
                 p_val = bilinear_interpolation(padded_input, px + int_radius, py + int_radius)
+                p_vals.append(p_val)
                 if p_val >= input_img[cy, cx]:
-                    lbp_val += 2 ** p
+                    lbp_val += 1
+            s = np.heaviside(np.subtract(p_vals, input_img[cy, cx]), 1)
+            u = np.sum(np.abs(s[1:] - s[:-1]))
+            if u > 2:
+                lbp_val = points + 1
             output[cy, cx] = lbp_val
     output = (np.rint(output)).astype(np.uint8)
     return output
@@ -64,18 +70,18 @@ if __name__ == '__main__':
     end_time = timeit.default_timer()
     print("Time (s): ", end_time - start_time)
 
-    plt.hist(output_img.flatten(), bins=2**8)
+    plt.hist(output_img.flatten(), bins=pts + 1)
     plt.savefig('hist.png')
 
     plt.clf()
 
-    correct_lbp = local_binary_pattern(in_img, pts, rd, method="default")
+    correct_lbp = local_binary_pattern(in_img, pts, rd, method="uniform")
 
     correct_lbp = (np.rint(correct_lbp)).astype(np.uint8)
     corr_img = Image.fromarray(correct_lbp)
     corr_img.save('./res-cor.jpg', 'jpeg')
 
-    plt.hist(correct_lbp.ravel(), bins=2**8)
+    plt.hist(correct_lbp.ravel(), bins=pts + 1)
     plt.savefig('hist-cor.png')
 
     out_img = Image.fromarray(output_img)
