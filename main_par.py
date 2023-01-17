@@ -2,7 +2,6 @@ import numpy as np
 import timeit
 from PIL import Image
 import matplotlib.pyplot as plt
-from skimage.feature import local_binary_pattern
 from joblib import Parallel, delayed, dump, load
 from tempfile import mkdtemp
 import os
@@ -101,7 +100,7 @@ def bilinear_interpolation(input_img: np.ndarray, px, py) -> float:
 
 
 if __name__ == '__main__':
-    img = Image.open(r"./test.jpg").convert("L")
+    img = Image.open(r"./input/test.jpg").convert("L")
     in_img = np.asarray(img)
 
     pts = 8
@@ -109,7 +108,6 @@ if __name__ == '__main__':
 
     output_img = None
 
-    # LBP
     n_rep = 1
     times = []
     for p in range(5):
@@ -123,24 +121,8 @@ if __name__ == '__main__':
         print("Time (s):", time, ", Processes:", processes)
     print("Process-Times:", times)
 
-    # start_time = timeit.default_timer()
-    # output_img = lbp(in_img, pts, rd)
-    # end_time = timeit.default_timer()
-    # print("Time (s): ", end_time - start_time)
-
     plt.hist(output_img.flatten(), bins=pts+1)
-    plt.savefig('hist.png')
-
-    plt.clf()
-
-    correct_lbp = local_binary_pattern(in_img, pts, rd, method="uniform")
-
-    correct_lbp = (np.rint(correct_lbp)).astype(np.uint8)
-    corr_img = Image.fromarray(correct_lbp)
-    corr_img.save('./res-cor.jpg', 'jpeg')
-
-    plt.hist(correct_lbp.ravel(), bins=pts+1)
-    plt.savefig('hist-cor.png')
+    plt.savefig('output/hist.png')
 
     out_img = Image.fromarray(output_img)
-    out_img.save('./res.jpg', 'jpeg')
+    out_img.save('./output/res.jpg', 'jpeg')
