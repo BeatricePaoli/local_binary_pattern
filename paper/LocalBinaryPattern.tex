@@ -95,6 +95,8 @@ where
 	\end{split}
 \end{equation*}
 
+This reduces the number of possible labels to $P + 2$ values.
+
 After obtaining the labeled image $f_l(x, y)$ the LBP histogram can be defined as:
 
 \[H_i = \sum_{x, y}I\{f_l(x, y) = i\}, i = 0...n -1\]
@@ -113,32 +115,61 @@ The implementation is done in Python and uses the \textit{Pillow} package to loa
 
 The application first loads the image in grayscale and converts it into a numpy array.
 
+In the LBP function, the image is padded by adding a frame of pixels with the constant value of 0 and is done by using the numpy function \verb"pad". This is necessary for the computation of the LBP labels of the edges and to allow any radius to be used as a parameter. The size of the padding on each side is $R$ rounded up to the nearest integer.
+
+The LBP labels are then computed with the use of uniform patterns.
+To bilinearly interpolate the grayscale value $g_p$ at $(p_x, p_y)$, the following formula is used:
+
+\begin{equation*}
+	\begin{split} 
+		g_p & = \frac{1}{(x_2 - x_1)(y_2 - y_1)} \cdot \\ &
+		\begin{bmatrix}
+			x_2 - p_x & p_x - x_1
+		\end{bmatrix}
+		\begin{bmatrix}
+			Q_{11} & Q_{12} \\
+			Q_{21} & Q_{22}
+		\end{bmatrix}
+		\begin{bmatrix}
+			y_2 - p_y \\ 
+			p_y - y_1
+		\end{bmatrix}
+	\end{split}
+\end{equation*}
+
+
+where $Q_{11} = (x_1, y_1), \quad Q_{12} = (x_1, y_2), \quad Q_{21} = (x_2, y_1), \quad Q_{22} = (x_2, y_2)$ are respectively the bottom-left, top-left, bottom-right and top-right closest valid pixel values to $(p_x, p_y)$.
+
 The pseudo-code of the LBP function is the following:
 
 \begin{algorithm}[H]
-	\label{alg:lbp}
 	\caption{Local Binary Pattern}
+	\label{alg:lbp}
 	\begin{algorithmic}
 		\Require input image, P, R
 		\vspace{0.5cm}
 		
 		\State Pad input image
-		\For{$cx \in [0...height)$}
-		\For{$cy \in [0...width$)}
+		\For{$cy \in [0...height)$}
+		\For{$cx \in [0...width$)}
 		\State $lbp\_val \leftarrow 0$
 		\For{$p \in [0...P)$}
 		\State $p_x \leftarrow c_x - R\sin(2\pi p/P)$
 		\State $p_y \leftarrow c_y + R\cos(2\pi p/P)$
-		\State $g_p \leftarrow$ bilinear interpolation
+		\If{$p_x, p_y$ are integers}
+		\State $g_p \leftarrow input(p_x, p_y)$
+		\Else
+		\State $g_p \leftarrow bilinear\_interpolation(p_x, p_y)$
+		\EndIf
 		\If{$g_p \ge g_c$}
-			\State $lbp\_val \leftarrow lbp\_val + 1$
+		\State $lbp\_val \leftarrow lbp\_val + 1$
 		\EndIf
 		\EndFor
 		\State $u \leftarrow U(LBP_{P, R})$
 		\If{$u > 2$}
 		\State $lbp\_val \leftarrow P + 1$
 		\EndIf
-		\State output pixel $\leftarrow lbp\_val$
+		\State $output(c_x, c_y) \leftarrow lbp\_val$
 		\EndFor
 		\EndFor
 		\State \Return output image
@@ -146,92 +177,59 @@ The pseudo-code of the LBP function is the following:
 	\end{algorithmic}
 \end{algorithm}
 
-The image is padded by replicating the border pixels and is done by using the numpy function \verb"pad".
+Finally, the output array is used to compute the histogram and then both histogram and image are saved on a file. 
 
-TODO: interpolazione
+\section{Parallelization}
 
-After the function, the output array is used to compute the histogram and then both histogram and image are saved on a file. 
-%
-%\section{Parallelization}
-%
-%During the kernel convolution process, each output pixel depends on some pixels of the input image and the kernel. These values are only read, the only writes performed are the output pixels' values and they are independent from each other. 
-%
-%Therefore, this is an embarassingly parallel problem: each output pixel can be computed by a thread without the need of any synchronization between threads.
-%
-%The Python interpreter is based on the \textit{Global Interpreter Lock} (GIL), which prevents the execution of multiple threads. To bypass this problem and achieve parallelization, we need to use processes instead of threads.
-%Each process will have its own interpreter (including its own GIL) and  memory, so their instantiation has a greater overhead compared to threads.
-%
-%For this implementation, the \textit{Joblib} library was used. It is a high level library that allows to parallelize computation through the use of a backend library (\textit{multiprocessing} or \textit{loki}) in a transparent way.
-%
-%While tecnically each output pixel could be computed independently, it isn't convenient to spawn too many processess, nor to fraction a process job in too many parts. 
-%
-%Therefore the image is split in a number of sub-images equal to the number of processes to use. So each process computes only an output slice of the total output. The split and join is performed by the main process.
-%
-%Each processes needs in input the padded image (computed by the main process), the kernel, the indices of the output sub-image to compute and the shape of the original image (used to performs some checks).
-%
-%However the numpy array that represents the padded image is very big and can result to a very slow instantiation of the process due to the copy of this array. To avoid this problem, and reduce the execution times we can use the \verb"joblib.dump()" and \verb"joblib.load()" functions to save and reload the numpy array efficiently. 
-%
-%The main process saves the array on disk and deletes it at the end of the function, while each process loads the file to perform the convolution.
-%
-%To recap, the main process:
-%
-%\begin{enumerate}
-%	\item Creates the padded array from the input.
-%	\item Saves the padded array on disk in a compressed format.
-%	\item Splits the original image in sub-images.
-%	\item Instantiates the sub-processes with the \verb"Parallel" class, each with their own parameters.
-%	\item After all sub-processess terminate, the output image is built from the returned slices.
-%\end{enumerate}
-%
-%While, the work performed by each process is described in the following pseudo-code:
-%
-%\begin{algorithm}[H]
-%	\label{alg:convolution_slice}
-%	\caption{Convolution of an image slice}
-%	\begin{algorithmic}
-%		\Require input image path, kernel, input image shape, sub-image indices
-%		\vspace{0.5cm}
-%		
-%		\If{sub-image indices are \textbf{not} valid}
-%		\State \Return None
-%		\Else
-%		\State Load the padded image from file
-%		\For{each channel in sub-image}
-%		\For{each row in sub-image}
-%		\For{each column in sub-image}
-%		\State o $\leftarrow$ 0
-%		\For{each row in kernel}
-%		\For{each column in kernel}
-%		\State o $\leftarrow$ o + kernel pixel * image pixel
-%		\EndFor
-%		\EndFor
-%		\State output sub-image pixel $\leftarrow$ o
-%		\EndFor
-%		\EndFor
-%		\EndFor
-%		\State \Return output sub-image
-%		\EndIf
-%		
-%	\end{algorithmic}
-%\end{algorithm}
-%
-%\section{Performance Analysis}
-%In order to compare the performance of a sequential algorithm with its parallel version we can use the concept of \textit{speedup}.
-%
-%Speedup is measured as the ratio between the execution time of the sequential algorithm and the parallel one.
-%
-%\[S = \frac{t_s}{t_p}\]
-%
-%Ideally, we should look for \textit{perfect speedup} or even \textit{linear speedup}, meaning $S$ should be equal or similar to the number of processors used to perform the parallel algorithm.
-%
-%The tests were performed on a Intel Core i7-1165G7 with 4 physical cores and 8 logical cores. To evaluate the application performance, different images and kernel sizes were used.
-%
-%\begin{figure}[H]
-%	\includegraphics[width=\linewidth]{images/speedup_by_kernel_sizes.png}
-%	\caption{Speedup of the convolution function on a 734x694 image with different kernel sizes.}
-%	\label{fig:speedup_kernel}
-%\end{figure}
-%
+The computation of the output label for each pixel only requires to read some pixels from the input image. The only write operation necessary is the assignment of the label to the output pixel and they are all independent from each other. 
+
+Therefore, this is an embarassingly parallel problem: each output pixel can be computed by a thread without the need of any synchronization.
+
+The Python interpreter is based on the \textit{Global Interpreter Lock} (GIL), which prevents the execution of multiple threads. To bypass this problem and achieve parallelization, we need to use processes instead of threads.
+Each process will have its own interpreter (including its own GIL) and  memory, so their instantiation has a greater overhead compared to threads.
+
+For this implementation, the \textit{Joblib} library was used. It is a high level library that allows to parallelize computation through the use of a backend library (\textit{multiprocessing} or \textit{loki}) in a transparent way.
+
+While tecnically each output pixel could be computed independently, it isn't convenient to spawn too many processess, nor to fraction a process job in too many parts. 
+
+Therefore the image is split in a number of sub-images equal to the number of processes to use. So each process computes only an output slice of the total output. The split and join is performed by the main process.
+
+Each processes needs in input the image, the parameters $P$ and $R$ and the indices of the output sub-image. Each subprocess first performes some checks to avoid going out of bound and then computes the padded array (numpy's \verb"pad" is extremely fast, no slowdown is caused by having this computation repeated for each process).
+
+However, the only problem is represented by the input array which can be very big and can result to a very slow instantiation of the processess due to the array copy. This problem can be solved by using the \verb"joblib.dump()" and \verb"joblib.load()" functions to save and reload the numpy array efficiently. 
+
+The main process saves the array on disk and deletes it at the end of the function, while each process loads the file to perform the lbp operator on its slice of the image. 
+
+To recap, the main process:
+
+\begin{enumerate}
+	\item Saves the input array on disk in a compressed format.
+	\item Splits the original image in sub-images.
+	\item Instantiates the sub-processes with the \verb"Parallel" class, each with their own parameters.
+	\item After all sub-processess terminate, the output image is built from the returned slices.
+\end{enumerate}
+
+The work of each subprocess is similar to the one described in Algorithm \ref{alg:lbp}, the only things that changes are the for loops that only iterate on the assigned slice and the necessary shifting of some pixel coordinates. 
+
+\section{Performance Analysis}
+In order to compare the performance of a sequential algorithm with its parallel version we can use the concept of \textit{speedup}.
+
+Speedup is measured as the ratio between the execution time of the sequential algorithm and the parallel one.
+
+\[S = \frac{t_s}{t_p}\]
+
+Ideally, we should look for \textit{perfect speedup} or even \textit{linear speedup}, meaning $S$ should be equal or similar to the number of processors used to perform the parallel algorithm.
+
+The tests were performed on a Intel Core i7-1165G7 with 4 physical cores and 8 logical cores. To evaluate the application performance, images of different sizes and different values for the parameter $P$ were used.
+
+The parameter $R$ is not considered since its variation doesn't cause any change in execution times and speedup.
+
+\begin{figure}[H]
+	\includegraphics[width=\linewidth]{images/speedup_by_p.png}
+	\caption{Speedup of the LBP operator on a 734x694 image and $R = 1$ with different values for P.}
+	\label{fig:speedup_kernel}
+\end{figure}
+
 %\begin{table}[H]
 %	\begin{center}
 %		\begin{tabular}{|c|c|c|}
