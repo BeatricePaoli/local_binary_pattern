@@ -1,0 +1,394 @@
+\documentclass[10pt,twocolumn,letterpaper]{article}
+
+\usepackage{cvpr}
+\usepackage{times}
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\usepackage{url}
+
+% Include other packages here, before hyperref.
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+
+% If you comment hyperref and then uncomment it, you should delete
+% egpaper.aux before re-running latex.  (Or just hit 'q' on the first latex
+% run, let it finish, and you should be clear).
+%\usepackage[pagebackref=true,breaklinks=true,letterpaper=true,colorlinks,bookmarks=false]{hyperref}
+
+\cvprfinalcopy % *** Uncomment this line for the final submission
+
+\def\cvprPaperID{****} % *** Enter the CVPR Paper ID here
+\def\httilde{\mbox{\tt\raisebox{-.5ex}{\symbol{126}}}}
+
+% Pages are numbered in submission mode, and unnumbered in camera-ready
+\ifcvprfinal\pagestyle{empty}\fi
+\begin{document}
+
+%%%%%%%%% TITLE
+\title{Local Binary Pattern: comparison between a sequential and parallel implementation}
+
+\author{Beatrice Paoli\\
+{\tt\small beatrice.paoli@stud.unifi.it}
+}
+
+\maketitle
+\thispagestyle{empty}
+
+%%%%%%%%% ABSTRACT
+\begin{abstract}
+%The purpose of this paper is to implement the algorithm to compute the Local Binary Pattern for an image. There are many variations of this algorithm: the chosen implementation allows to choose any radius and number of pixels in the neighborhood but does not consider "uniform patterns". Both a sequential and a parallel implementation are presented and the two versions are compared in terms of execution times and speedup. The implementations are done in Python and the parallel version uses the Joblib package.
+The purpose of this paper is to implement the algorithm to compute the Local Binary Pattern for an image. There are many variations of this algorithm: the chosen implementation allows to choose any radius and number of pixels in the neighborhood and considers "uniform patterns" for labelling each pixel of the image. Both a sequential and a parallel implementation are presented and the two versions are compared in terms of execution times and speedup. The implementations are done in Python and the parallel version uses the Joblib package.
+\end{abstract}
+
+%-------------------------------------------------------------------------
+
+\section{Introduction}
+Local Binary Pattern (LBP) is a simple and efficient texture descriptor that labels each pixel of an image with a binary number based on the neighboring pixels in order to create a local representation of the texture.
+
+Used for texture analysis and classification, thanks to its computational simplicity it is widely used for many applications such as face analysis and motion analysis.
+
+Many variants have been developed over time, but the basic idea of the LBP operator is to assign to each pixel of the greyscaled image a value by 
+considering the difference of each of the 3x3 neighboring pixels with the center as binary values and then combine them in a clockwise or counter-clockwise to get the decimal label to assign to the pixel.
+
+The histogram obtained from the occurrencies of these $2^8$ labels can be used as a texture descriptor.
+
+An extension of this basic concept allows to use circular neighborhoods of different sizes and different distances from the center. The operator is denoted as $LBP_{P, R}$ where $P$ is the number of sampled neighbors and $R$ is the radius of the circle where the sampled pixels stand.
+
+If $c_x$ and $c_y$ are the coordinates of the center pixel, the coordinates of each neighbour pixel $p$ can be computed as:
+
+\begin{gather*}
+	p_x = c_x - R\sin(2\pi p/P) \\ 
+	p_y = c_y + R\cos(2\pi p/P)
+\end{gather*}
+
+If these coordinates don't end into the center of a pixel, the grayscale value is bilinearly interpolated.
+
+At this point, the LBP operator is computed as:
+
+\[LBP_{P, R} = \sum_{p = 0}^{P - 1}s(g_p - g_c)2^p\]
+
+where $g_c$ and $g_p$ are respectively the grayscale values of the center pixel and neighbouring pixel and:
+
+\[s(x) = \begin{cases} 1, & \mbox{if } x \ge 0 \\ 0, & \mbox{otherwhise} \end{cases}\]
+
+This version of the LBP operator is not rotation-invariant as it depends on the order of consideration of the $0...P-1$ neighbours. So rotating the image will lead to different results.
+
+%To solve this problem, another variant of the LBP operator considers \textit{uniform patterns} to achieve rotation-invariance, but for the implementation presented in this paper it wasn't used.
+
+To solve this problem, another variant of the LBP operator considers \textit{uniform patterns} to achieve rotation-invariance. A circular neighbourhood of pixels is said to have a uniform pattern if there are few spatial transitions.
+
+More formally, we define the function $U$ that calculates the number of spatial transitions (bitwise 0/1 changes) in the neighbourhood pattern.
+
+Only patterns with a value of $U$ of at most 2 are considered uniform. With this, a new definition of the LBP operator is given.
+
+\[LBP_{P, R}^{riu2} = \begin{cases} \sum_{p = 0}^{P - 1}s(g_p - g_c), & \mbox{if } U(LBP_{P, R}) \le 2 \\ P + 1, & \mbox{otherwhise} \end{cases}\]
+
+where
+
+\begin{equation*}
+	\begin{split} 
+		U(LBP_{P, R}) & = |s(g_{p - 1} - g_c) - s(g_0 - g_c)| \\ & + \sum_{p = 1}^{P - 1}|s(g_p - g_c) - s(g_{p -1} - g_c)|
+	\end{split}
+\end{equation*}
+
+After obtaining the labeled image $f_l(x, y)$ the LBP histogram can be defined as:
+
+\[H_i = \sum_{x, y}I\{f_l(x, y) = i\}, i = 0...n -1\]
+
+where n is the number of different labels assigned and:
+
+\[I(A) = \begin{cases} 1, & \mbox{if } A \mbox{ is true} \\ 0, & \mbox{otherwhise} \end{cases}\]
+
+If we need to compare histograms of images of different sizes, they must be normalized first:
+
+\[N_i = \frac{H_i}{\sum_{j = 0}^{n - 1}H_j}\]
+
+\section{Implementation}
+
+The implementation is done in Python and uses the \textit{Pillow} package to load and save images in RGB format, and the \textit{numpy} package for handling arrays. 
+
+The application first loads the image in grayscale and converts it into a numpy array.
+
+The pseudo-code of the LBP function is the following:
+
+\begin{algorithm}[H]
+	\label{alg:lbp}
+	\caption{Local Binary Pattern}
+	\begin{algorithmic}
+		\Require input image, P, R
+		\vspace{0.5cm}
+		
+		\State Pad input image
+		\For{$cx \in [0...height)$}
+		\For{$cy \in [0...width$)}
+		\State $lbp\_val \leftarrow 0$
+		\For{$p \in [0...P)$}
+		\State $p_x \leftarrow c_x - R\sin(2\pi p/P)$
+		\State $p_y \leftarrow c_y + R\cos(2\pi p/P)$
+		\State $g_p \leftarrow$ bilinear interpolation
+		\If{$g_p \ge g_c$}
+			\State $lbp\_val \leftarrow lbp\_val + 1$
+		\EndIf
+		\EndFor
+		\State $u \leftarrow U(LBP_{P, R})$
+		\If{$u > 2$}
+		\State $lbp\_val \leftarrow P + 1$
+		\EndIf
+		\State output pixel $\leftarrow lbp\_val$
+		\EndFor
+		\EndFor
+		\State \Return output image
+		
+	\end{algorithmic}
+\end{algorithm}
+
+The image is padded by replicating the border pixels and is done by using the numpy function \verb"pad".
+
+TODO: interpolazione
+
+After the function, the output array is used to compute the histogram and then both histogram and image are saved on a file. 
+%
+%\section{Parallelization}
+%
+%During the kernel convolution process, each output pixel depends on some pixels of the input image and the kernel. These values are only read, the only writes performed are the output pixels' values and they are independent from each other. 
+%
+%Therefore, this is an embarassingly parallel problem: each output pixel can be computed by a thread without the need of any synchronization between threads.
+%
+%The Python interpreter is based on the \textit{Global Interpreter Lock} (GIL), which prevents the execution of multiple threads. To bypass this problem and achieve parallelization, we need to use processes instead of threads.
+%Each process will have its own interpreter (including its own GIL) and  memory, so their instantiation has a greater overhead compared to threads.
+%
+%For this implementation, the \textit{Joblib} library was used. It is a high level library that allows to parallelize computation through the use of a backend library (\textit{multiprocessing} or \textit{loki}) in a transparent way.
+%
+%While tecnically each output pixel could be computed independently, it isn't convenient to spawn too many processess, nor to fraction a process job in too many parts. 
+%
+%Therefore the image is split in a number of sub-images equal to the number of processes to use. So each process computes only an output slice of the total output. The split and join is performed by the main process.
+%
+%Each processes needs in input the padded image (computed by the main process), the kernel, the indices of the output sub-image to compute and the shape of the original image (used to performs some checks).
+%
+%However the numpy array that represents the padded image is very big and can result to a very slow instantiation of the process due to the copy of this array. To avoid this problem, and reduce the execution times we can use the \verb"joblib.dump()" and \verb"joblib.load()" functions to save and reload the numpy array efficiently. 
+%
+%The main process saves the array on disk and deletes it at the end of the function, while each process loads the file to perform the convolution.
+%
+%To recap, the main process:
+%
+%\begin{enumerate}
+%	\item Creates the padded array from the input.
+%	\item Saves the padded array on disk in a compressed format.
+%	\item Splits the original image in sub-images.
+%	\item Instantiates the sub-processes with the \verb"Parallel" class, each with their own parameters.
+%	\item After all sub-processess terminate, the output image is built from the returned slices.
+%\end{enumerate}
+%
+%While, the work performed by each process is described in the following pseudo-code:
+%
+%\begin{algorithm}[H]
+%	\label{alg:convolution_slice}
+%	\caption{Convolution of an image slice}
+%	\begin{algorithmic}
+%		\Require input image path, kernel, input image shape, sub-image indices
+%		\vspace{0.5cm}
+%		
+%		\If{sub-image indices are \textbf{not} valid}
+%		\State \Return None
+%		\Else
+%		\State Load the padded image from file
+%		\For{each channel in sub-image}
+%		\For{each row in sub-image}
+%		\For{each column in sub-image}
+%		\State o $\leftarrow$ 0
+%		\For{each row in kernel}
+%		\For{each column in kernel}
+%		\State o $\leftarrow$ o + kernel pixel * image pixel
+%		\EndFor
+%		\EndFor
+%		\State output sub-image pixel $\leftarrow$ o
+%		\EndFor
+%		\EndFor
+%		\EndFor
+%		\State \Return output sub-image
+%		\EndIf
+%		
+%	\end{algorithmic}
+%\end{algorithm}
+%
+%\section{Performance Analysis}
+%In order to compare the performance of a sequential algorithm with its parallel version we can use the concept of \textit{speedup}.
+%
+%Speedup is measured as the ratio between the execution time of the sequential algorithm and the parallel one.
+%
+%\[S = \frac{t_s}{t_p}\]
+%
+%Ideally, we should look for \textit{perfect speedup} or even \textit{linear speedup}, meaning $S$ should be equal or similar to the number of processors used to perform the parallel algorithm.
+%
+%The tests were performed on a Intel Core i7-1165G7 with 4 physical cores and 8 logical cores. To evaluate the application performance, different images and kernel sizes were used.
+%
+%\begin{figure}[H]
+%	\includegraphics[width=\linewidth]{images/speedup_by_kernel_sizes.png}
+%	\caption{Speedup of the convolution function on a 734x694 image with different kernel sizes.}
+%	\label{fig:speedup_kernel}
+%\end{figure}
+%
+%\begin{table}[H]
+%	\begin{center}
+%		\begin{tabular}{|c|c|c|}
+%			\hline
+%			Processes & Execution Time (s) & Speedup \\
+%			\hline
+%			1 & 6.774 & 1 \\
+%			2 & 3.818 & 1.774 \\
+%			4 & 2.425 & 2.793 \\
+%			8 & 2.716 & 2.494 \\
+%			16 & 2.733 & 2.478 \\
+%			\hline
+%		\end{tabular}
+%	\end{center}
+%	\caption{Execution Times for the 3x3 kernel.}
+%	\label{tab:speedup_k_1}
+%\end{table}
+%
+%\begin{table}[H]
+%	\begin{center}
+%		\begin{tabular}{|c|c|c|}
+%			\hline
+%			Processes & Execution Time (s) & Speedup \\
+%			\hline
+%			1 & 15.947 & 1 \\
+%			2 & 8.707 & 1.831 \\
+%			4 & 5.578 & 2.859 \\
+%			8 & 6.185 & 2.578 \\
+%			16 & 6.314 & 2.526 \\
+%			\hline
+%		\end{tabular}
+%	\end{center}
+%	\caption{Execution Times for the 5x5 kernel.}
+%	\label{tab:speedup_k_2}
+%\end{table}
+%
+%\begin{table}[H]
+%	\begin{center}
+%		\begin{tabular}{|c|c|c|}
+%			\hline
+%			Processes & Execution Time (s) & Speedup \\
+%			\hline
+%			1 & 29.415 & 1.000 \\
+%			2 & 16.599 & 1.772 \\
+%			4 & 10.597 & 2.776 \\
+%			8 & 11.870 & 2.478 \\
+%			16 & 12.599 & 2.335 \\
+%			\hline
+%		\end{tabular}
+%	\end{center}
+%	\caption{Execution Times for the 7x7 kernel.}
+%	\label{tab:speedup_k_3}
+%\end{table}
+%
+%\begin{table}[H]
+%	\begin{center}
+%		\begin{tabular}{|c|c|c|}
+%			\hline
+%			Processes & Execution Time (s) & Speedup \\
+%			\hline
+%			1 & 47.220 & 1.000 \\
+%			2 & 26.368 & 1.791 \\
+%			4 & 16.220 & 2.911 \\
+%			8 & 18.629 & 2.535 \\
+%			16 & 18.993 & 2.486 \\
+%			\hline
+%		\end{tabular}
+%	\end{center}
+%	\caption{Execution Times for the 9x9 kernel.}
+%	\label{tab:speedup_k_4}
+%\end{table}
+%
+%In Figure \ref{fig:speedup_kernel} we have the different speedups for different numbers of preocesses used and some common kernel sizes. We can see how the speedup increases up to 4 processes in a sub-linear way and slightly decrease for higher numbers of processes, but still stay above the value of 2.
+% 
+%The speedup values obtained are similar for all kernels, showing that this parallelization is independent from (small) kernel sizes.
+%For increasing kernel sizes.
+%
+%\begin{figure}[H]
+%	\includegraphics[width=\linewidth]{images/speedup_by_img_sizes.png}
+%	\caption{Speedup of the convolution function on a 7x7 kernel with different image sizes.}
+%	\label{fig:speedup_img}
+%\end{figure}
+%
+%\begin{table}[H]
+%	\begin{center}
+%		\begin{tabular}{|c|c|c|}
+%			\hline
+%			Processes & Execution Time (s) & Speedup \\
+%			\hline
+%			1 & 3.429 & 1.000 \\
+%			2 & 1.965 & 1.745 \\
+%			4 & 1.280 & 2.679 \\
+%			8 & 1.467 & 2.338 \\
+%			16 & 1.494 & 2.296 \\
+%			\hline
+%		\end{tabular}
+%	\end{center}
+%	\caption{Execution Times for the 250x250 image.}
+%	\label{tab:speedup_k_i_1}
+%\end{table}
+%
+%\begin{table}[H]
+%	\begin{center}
+%		\begin{tabular}{|c|c|c|}
+%			\hline
+%			Processes & Execution Time (s) & Speedup \\
+%			\hline
+%			1 & 29.415 & 1.000 \\
+%			2 & 16.599 & 1.772 \\
+%			4 & 10.597 & 2.776 \\
+%			8 & 11.870 & 2.478 \\
+%			16 & 12.599 & 2.335 \\
+%			\hline
+%		\end{tabular}
+%	\end{center}
+%	\caption{Execution Times for the 734x694 image.}
+%	\label{tab:speedup_k_i_2}
+%\end{table}
+%
+%\begin{table}[H]
+%	\begin{center}
+%		\begin{tabular}{|c|c|c|}
+%			\hline
+%			Processes & Execution Time (s) & Speedup \\
+%			\hline
+%			1 & 124.920 & 1.000 \\
+%			2 & 80.047 & 1.561 \\
+%			4 & 55.777 & 2.240 \\
+%			8 & 63.549 & 1.966 \\
+%			16 & 63.456 & 1.969 \\
+%			\hline
+%		\end{tabular}
+%	\end{center}
+%	\caption{Execution Times for the 1920x1080 image.}
+%	\label{tab:speedup_i_3}
+%\end{table}
+%
+%\begin{table}[H]
+%	\begin{center}
+%		\begin{tabular}{|c|c|c|}
+%			\hline
+%			Processes & Execution Time (s) & Speedup \\
+%			\hline
+%			1 & 189.372 & 1.000 \\
+%			2 & 121.490 & 1.559 \\
+%			4 & 85.668 & 2.211 \\
+%			8 & 97.315 & 1.946 \\
+%			16 & 96.365 & 1.965 \\
+%			\hline
+%		\end{tabular}
+%	\end{center}
+%	\caption{Execution Times for the 2048x1536 image.}
+%	\label{tab:speedup_i_4}
+%\end{table}
+%
+%In Figure \ref{fig:speedup_img} we have the speedup trends for different input images. As before, the values increase up to 4 processes and decrease afterwards.
+%
+%Bigger images tend to have less speedup overall, but still around 2 for more than 4 processes, making the parallel algorithm still more convenient than the sequential one.
+
+\end{document}
