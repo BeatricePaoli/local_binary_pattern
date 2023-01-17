@@ -6,7 +6,7 @@ def plot_latex_table(points: np.ndarray) -> None:
     speedup = np.copy(points)
     speedup[:, 1] = points[0, 1] / points[:, 1]
     for p, s in zip(points, speedup):
-        print(f'{p[0]:.0f} & {p[1]:.5f} & {s[1]:.5f} \\\\')
+        print(f'{p[0]:.0f} & {p[1]:.3f} & {s[1]:.3f} \\\\')
     print()
 
 
