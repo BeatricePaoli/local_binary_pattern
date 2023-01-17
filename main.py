@@ -11,14 +11,13 @@ def lbp(input_img: np.ndarray, points: int, radius: float) -> np.ndarray:
     int_radius = np.ceil(radius).astype(int)
     padded_input = np.pad(input_img, ((int_radius, int_radius), (int_radius, int_radius)), 'constant',
                           constant_values=(0, 0))
-    for cy in range(height):  # range(int_radius, height - int_radius)
-        for cx in range(width):  # range(int_radius, width - int_radius)
+    for cy in range(height):
+        for cx in range(width):
             lbp_val = 0
             p_vals = []
             for p in range(points):
                 px = cx - radius * np.sin(2 * np.pi * p / points)
                 py = cy + radius * np.cos(2 * np.pi * p / points)
-                # p_val = bilinear_interpolation(input_img, px, py)
                 p_val = bilinear_interpolation(padded_input, px + int_radius, py + int_radius)
                 p_vals.append(p_val)
                 if p_val >= input_img[cy, cx]:
