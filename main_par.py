@@ -121,7 +121,7 @@ if __name__ == '__main__':
         print("Time (s):", time, ", Processes:", processes)
     print("Process-Times:", times)
 
-    plt.hist(output_img.flatten(), bins=pts+1)
+    plt.hist(output_img.flatten(), bins=pts+2)
     plt.savefig('output/hist.png')
 
     out_img = Image.fromarray(output_img)

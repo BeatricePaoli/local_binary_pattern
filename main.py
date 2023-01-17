@@ -69,7 +69,7 @@ if __name__ == '__main__':
     end_time = timeit.default_timer()
     print("Time (s): ", end_time - start_time)
 
-    plt.hist(output_img.flatten(), bins=pts + 1)
+    plt.hist(output_img.flatten(), bins=pts + 2)
     plt.savefig('output/hist.png')
 
     # Scikit-image comparison
@@ -81,7 +81,7 @@ if __name__ == '__main__':
     # corr_img = Image.fromarray(correct_lbp)
     # corr_img.save('./output/res-cor.jpg', 'jpeg')
     #
-    # plt.hist(correct_lbp.ravel(), bins=pts + 1)
+    # plt.hist(correct_lbp.ravel(), bins=pts + 2)
     # plt.savefig('output/hist-cor.png')
 
     out_img = Image.fromarray(output_img)
