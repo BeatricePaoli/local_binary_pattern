@@ -227,7 +227,7 @@ The parameter $R$ is not considered since its variation doesn't cause any change
 \begin{figure}[H]
 	\includegraphics[width=\linewidth]{images/speedup_by_p.png}
 	\caption{Speedup of the LBP operator on a 734x694 image and $R = 1$ with different values for P.}
-	\label{fig:speedup_kernel}
+	\label{fig:speedup_p}
 \end{figure}
 
 \begin{table}[H]
@@ -302,10 +302,7 @@ The parameter $R$ is not considered since its variation doesn't cause any change
 	\label{tab:speedup_k_4}
 \end{table}
 
-TODO
-%In Figure \ref{fig:speedup_kernel} we have the different speedups for different numbers of preocesses used and some common kernel sizes. We can see how the speedup increases up to 4 processes in a sub-linear way and slightly decrease for higher numbers of processes, but still stay above the value of 2.
- 
-%The speedup values obtained are similar for all kernels, showing that this parallelization is independent from (small) kernel sizes.
+In Figure \ref{fig:speedup_p} we have the different speedups for different numbers of preocesses used and differente numbers of $P$, the neighbour size. The speedup increases when using between 2 to 8 processes and slightly decrease for higher numbers of processes, but still stay above the value of 2.
 
 \begin{figure}[H]
 	\includegraphics[width=\linewidth]{images/speedup_by_img_sizes.png}
@@ -385,9 +382,8 @@ TODO
 	\label{tab:speedup_i_4}
 \end{table}
 
-TODO
-%In Figure \ref{fig:speedup_img} we have the speedup trends for different input images. As before, the values increase up to 4 processes and decrease afterwards.
-%
-%Bigger images tend to have less speedup overall, but still around 2 for more than 4 processes, making the parallel algorithm still more convenient than the sequential one.
+In Figure \ref{fig:speedup_img} we have the speedup trends for different input images. As before, the values increase between 2 to 8 processes and decrease afterwards.
+
+For small images, like the 250x250 one, the execution times are very small even for the sequential version. As a consequence, smaller speedups are obtained for higher numbers of processes, since the overhead of process management starts to weight more than the computations to perform.
 
 \end{document}
