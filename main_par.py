@@ -7,19 +7,17 @@ from tempfile import mkdtemp
 import os
 
 
-def lbp(input_img: np.ndarray, points: int, radius: float, cores: int) -> np.ndarray:
+def lbp(input_img: np.ndarray, points: int, radius: float, proc: int) -> np.ndarray:
     height, width = input_img.shape
 
     savedir = mkdtemp()
     input_path = os.path.join(savedir, 'input.joblib')
     dump(input_img, input_path, compress=True)
 
-    slice_height = np.ceil(height / cores).astype(int)
-    n_slices = cores
-
-    output_slices = Parallel(n_jobs=n_slices)(delayed(sub_image_lbp)
-                                              (input_path, points, radius, y, y + slice_height, 0, width)
-                                              for y in range(0, height, slice_height))
+    slice_height = np.ceil(height / proc).astype(int)
+    output_slices = Parallel(n_jobs=proc)(delayed(sub_image_lbp)
+                                          (input_path, points, radius, y, y + slice_height, 0, width)
+                                          for y in range(0, height, slice_height))
 
     output = output_slices[0]
     for i in range(1, len(output_slices)):
@@ -27,7 +25,6 @@ def lbp(input_img: np.ndarray, points: int, radius: float, cores: int) -> np.nda
             output = np.vstack((output, output_slices[i]))
 
     os.remove(input_path)
-
     output = (np.rint(output)).astype(np.uint8)
     return output
 
@@ -121,7 +118,7 @@ if __name__ == '__main__':
         print("Time (s):", time, ", Processes:", processes)
     print("Process-Times:", times)
 
-    plt.hist(output_img.flatten(), bins=pts+2)
+    plt.hist(output_img.flatten(), bins=pts + 2)
     plt.savefig('output/hist.png')
 
     out_img = Image.fromarray(output_img)
