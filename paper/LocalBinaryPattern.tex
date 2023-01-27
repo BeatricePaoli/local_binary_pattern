@@ -181,6 +181,8 @@ Finally, the output array is used to compute the histogram and then both histogr
 
 \section{Parallelization}
 
+\subsection{Single image}
+
 The computation of the output label for each pixel only requires to read some pixels from the input image. The only write operation necessary is the assignment of the label to the output pixel and they are all independent from each other. 
 
 Therefore, this is an embarassingly parallel problem: each output pixel can be computed by a thread without the need of any synchronization.
@@ -209,7 +211,13 @@ To recap, the main process:
 	\item After all sub-processess terminate, the output image is built from the returned slices.
 \end{enumerate}
 
+\subsection{Multiple images}
+
 The work of each subprocess is similar to the one described in Algorithm \ref{alg:lbp}, the only things that changes are the for loops that only iterate on the assigned slice and the necessary shifting of some pixel coordinates. 
+
+Another type of parallelization was performed to compute the LBP operator for a dataset of images.
+
+A similar approach as before was used: all images are first saved with \verb"dump", then with the \verb"Parallel" class each process loads an image and elaborates it, until none is left.
 
 \section{Performance Analysis}
 In order to compare the performance of a sequential algorithm with its parallel version we can use the concept of \textit{speedup}.
@@ -385,5 +393,85 @@ In Figure \ref{fig:speedup_p} we have the different speedups for different numbe
 In Figure \ref{fig:speedup_img} we have the speedup trends for different input images. As before, the values increase between 2 to 8 processes and decrease afterwards.
 
 For small images, like the 250x250 one, the execution times are very small even for the sequential version. As a consequence, smaller speedups are obtained for higher numbers of processes, since the overhead of process management starts to weight more than the computations to perform.
+
+\begin{figure}[H]
+	\includegraphics[width=\linewidth]{images/speedup_by_ds.png}
+	\caption{Speedup of the LBP operator with $P=8$, $R=1$ with different sizes of datasets of 450x450 images.}
+	\label{fig:speedup_ds}
+\end{figure}
+
+\begin{table}[H]
+	\begin{center}
+		\begin{tabular}{|c|c|c|}
+			\hline
+			Processes & Execution Time (s) & Speedup \\
+			\hline
+			1 & 189.700 & 1.000 \\
+			2 & 126.128 & 1.504 \\
+			4 & 89.952 & 2.109 \\
+			8 & 85.126 & 2.228 \\
+			16 & 77.210 & 2.457 \\
+			\hline
+		\end{tabular}
+	\end{center}
+	\caption{Execution Times for the dataset of size 10.}
+	\label{tab:speedup_k_d_1}
+\end{table}
+
+\begin{table}[H]
+	\begin{center}
+		\begin{tabular}{|c|c|c|}
+			\hline
+			Processes & Execution Time (s) & Speedup \\
+			\hline
+			1 & 339.472 & 1.000 \\
+			2 & 226.982 & 1.496 \\
+			4 & 153.173 & 2.216 \\
+			8 & 152.700 & 2.223 \\
+			16 & 152.570 & 2.225 \\
+			\hline
+		\end{tabular}
+	\end{center}
+	\caption{Execution Times for the dataset of size 20.}
+	\label{tab:speedup_k_d_2}
+\end{table}
+
+\begin{table}[H]
+	\begin{center}
+		\begin{tabular}{|c|c|c|}
+			\hline
+			Processes & Execution Time (s) & Speedup \\
+			\hline
+			1 & 522.823 & 1.000 \\
+			2 & 326.594 & 1.601 \\
+			4 & 236.412 & 2.211 \\
+			8 & 232.357 & 2.250 \\
+			16 & 227.539 & 2.298 \\
+			\hline
+		\end{tabular}
+	\end{center}
+	\caption{Execution Times for the dataset of size 30.}
+	\label{tab:speedup_d_3}
+\end{table}
+
+\begin{table}[H]
+	\begin{center}
+		\begin{tabular}{|c|c|c|}
+			\hline
+			Processes & Execution Time (s) & Speedup \\
+			\hline
+			1 & 693.219 & 1.000 \\
+			2 & 435.379 & 1.592 \\
+			4 & 306.265 & 2.263 \\
+			8 & 300.660 & 2.306 \\
+			16 & 306.603 & 2.261 \\
+			\hline
+		\end{tabular}
+	\end{center}
+	\caption{Execution Times for the dataset of size 40.}
+	\label{tab:speedup_d_4}
+\end{table}
+
+In Figure \ref{fig:speedup_ds} we have the speedups for datasets of images. The values increase up to 8 and sometimes 16 processes, but in all cases the average speedup is around 2.25
 
 \end{document}
