@@ -43,6 +43,22 @@ if __name__ == '__main__':
     plot_latex_table(points8)
     points8[:, 1] = points8[0, 1] / points8[:, 1]
 
+    points9 = np.array([(1, 189.70019509998383), (2, 126.12823549995665), (4, 89.95179550000466), (8, 85.12617699999828), (16, 77.20998139999574)])
+    plot_latex_table(points9)
+    points9[:, 1] = points9[0, 1] / points9[:, 1]
+
+    points10 = np.array([(1, 339.4715341000119), (2, 226.98205160000362), (4, 153.17267430003267), (8, 152.7001507000532), (16, 152.56952220003586)])
+    plot_latex_table(points10)
+    points10[:, 1] = points10[0, 1] / points10[:, 1]
+
+    points11 = np.array([(1, 522.8232376000378), (2, 326.59442639991175), (4, 236.41241500002798), (8, 232.3571268999949), (16, 227.53912790003233)])
+    plot_latex_table(points11)
+    points11[:, 1] = points11[0, 1] / points11[:, 1]
+
+    points12 = np.array([(1, 693.2188653999474), (2, 435.3789729999844), (4, 306.2648754999973), (8, 300.66049579996616), (16, 306.603324500029)])
+    plot_latex_table(points12)
+    points12[:, 1] = points12[0, 1] / points12[:, 1]
+
     plt.xlabel('Processes')
     plt.ylabel('Speedup')
     plt.axis([1, 17, 1, 3])
@@ -72,3 +88,19 @@ if __name__ == '__main__':
 
     plt.legend()
     plt.savefig('speedup_by_img_sizes.png')
+
+    plt.clf()
+
+    plt.xlabel('Processes')
+    plt.ylabel('Speedup')
+    plt.axis([1, 17, 1, 3])
+
+    # p=8, r=1, 450x450px
+    plt.title('Speedup with datasets of images')
+    plt.plot(points9[:, 0], points9[:, 1], color='r', label='10 images')
+    plt.plot(points10[:, 0], points10[:, 1], color='g', label='20 images')
+    plt.plot(points11[:, 0], points11[:, 1], color='b', label='30 images')
+    plt.plot(points12[:, 0], points12[:, 1], color='m', label='40 images')
+
+    plt.legend()
+    plt.savefig('speedup_by_ds.png')
