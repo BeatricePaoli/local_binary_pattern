@@ -8,7 +8,7 @@ The implementation is done in Python and uses the *Pillow* package to load and s
 
 The pseudo-code of the LBP operator is the following:
 
-![conv_seq](presentation/images/lbp_seq.png)
+![conv_seq](readme_images/lbp_seq.png)
 
 The image is padded by adding a frame of pixels with the constant value of 0 and is done by using the numpy function `pad`. This is necessary for the computation of the LBP labels of the edges and to allow any radius to be used as a parameter
 
@@ -30,13 +30,9 @@ While each process performs the LBP operator for its image slice.
 
 ## Speedup Results
 
-Speedup results with a fixed test image of size 734x694 with varying values for the parameter P (neighbourhood size) and R = 1 (radius of the circular neighbourhood).
+Speedup results with a fixed test image of size 734x694 with varying values for the parameter P (neighbourhood size) and R = 1 (radius of the circular neighbourhood) and speedup results with P = 8, R = 1 and input images of different sizes.
 
-![speedup_p](paper/images/speedup_by_p.png)
-
-Speedup results with P = 8, R = 1 and input images of different sizes.
-
-![speedup_i](paper/images/speedup_by_img_sizes.png)
+![speedup](readme_images/speedup.png)
 
 ## References
 
