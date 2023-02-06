@@ -211,9 +211,9 @@ To recap, the main process:
 	\item After all sub-processess terminate, the output image is built from the returned slices.
 \end{enumerate}
 
-\subsection{Multiple images}
-
 The work of each subprocess is similar to the one described in Algorithm \ref{alg:lbp}, the only things that changes are the for loops that only iterate on the assigned slice and the necessary shifting of some pixel coordinates. 
+
+\subsection{Multiple images}
 
 Another type of parallelization was performed to compute the LBP operator for a dataset of images.
 
